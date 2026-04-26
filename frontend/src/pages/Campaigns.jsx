@@ -91,7 +91,7 @@ const Campaigns = ({ onNavigate }) => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
-                <div style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
+                <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: '1rem' }}>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total Leads</p>
                   <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>{campaign.total_leads}</p>
                 </div>
@@ -101,7 +101,7 @@ const Campaigns = ({ onNavigate }) => {
                   </p>
                   <p style={{ fontSize: '1.5rem', fontWeight: 700 }}>{campaign.sent_count}</p>
                 </div>
-                <div style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
+                <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: '1rem' }}>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
                     <Eye size={14} style={{ marginRight: '0.25rem', display: 'inline' }} />Opened
                   </p>

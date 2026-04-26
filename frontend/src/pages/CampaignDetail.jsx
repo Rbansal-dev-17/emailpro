@@ -27,10 +27,10 @@ const FollowUpRow = ({ fu, campaignId }) => {
   }
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderLeft: '3px solid rgba(99,102,241,0.5)', borderRadius: '10px', marginBottom: '0.75rem', overflow: 'hidden' }}>
+    <div style={{ border: '1px solid var(--border)', borderLeft: '3px solid rgba(217,119,87,0.40)', borderRadius: '10px', marginBottom: '0.75rem', overflow: 'hidden' }}>
       <div
         onClick={toggle}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-secondary)', cursor: 'pointer' }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-surface)', cursor: 'pointer' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <MessageSquare size={15} style={{ color: 'var(--text-secondary)' }} />
@@ -39,7 +39,7 @@ const FollowUpRow = ({ fu, campaignId }) => {
             after {fu.send_after_days} day{fu.send_after_days !== 1 ? 's' : ''}
           </span>
           {fu.scheduled_send_at && (
-            <span style={{ fontSize: '11px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
+            <span style={{ fontSize: '11px', background: 'var(--bg-surface-3)', color: 'var(--text-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
               {new Date(fu.scheduled_send_at).toLocaleDateString()} {new Date(fu.scheduled_send_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
@@ -63,7 +63,7 @@ const FollowUpRow = ({ fu, campaignId }) => {
               </p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {fu.variations.map(v => (
-                  <div key={v.variation_index} style={{ background: 'var(--bg-tertiary)', borderRadius: '6px', padding: '6px 10px', fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>
+                  <div key={v.variation_index} style={{ background: 'var(--bg-surface-3)', borderRadius: '6px', padding: '6px 10px', fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '300px' }}>
                     <strong>Var {v.variation_index + 1}:</strong> {v.body?.slice(0, 80)}{v.body?.length > 80 ? '…' : ''}
                   </div>
                 ))}
@@ -90,7 +90,7 @@ const FollowUpRow = ({ fu, campaignId }) => {
                   <tr key={e.id}>
                     <td>{e.recipient_email}</td>
                     <td>
-                      <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: '4px', padding: '2px 7px', fontSize: '11px' }}>
+                      <span style={{ background: 'rgba(217,119,87,0.12)', color: 'var(--accent)', borderRadius: '4px', padding: '2px 7px', fontSize: '11px' }}>
                         V{(e.followup_variation_index ?? 0) + 1}
                       </span>
                     </td>
@@ -208,7 +208,7 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
         {[
           {
             label: 'Status', value: campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1),
-            color: campaign.status === 'draft' ? '#fbbf24' : campaign.status === 'sending' ? '#60a5fa' : '#86efac'
+            color: campaign.status === 'draft' ? 'var(--warning)' : campaign.status === 'sending' ? 'var(--info)' : 'var(--success)'
           },
           { label: 'Total Leads', value: campaign.total_leads },
           { label: 'Emails Sent', value: campaign.sent_count },
@@ -232,7 +232,7 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
             Ready to launch? Click below to start sending emails.
           </p>
           <button className="btn btn-success" onClick={handleSend} disabled={sending}
-            style={{ background: 'rgba(16,185,129,0.15)', color: '#86efac', border: '1px solid rgba(16,185,129,0.3)' }}>
+            style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.3)' }}>
             <Send size={18} /> {sending ? 'Sending...' : 'Send Campaign'}
           </button>
         </div>
@@ -240,11 +240,11 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
 
       {/* Variation breakdown */}
       {tplVariations.length > 0 && (
-        <div className="card" style={{ marginBottom: '2rem', borderLeft: '3px solid var(--primary)' }}>
+        <div className="card" style={{ marginBottom: '2rem', borderLeft: '3px solid var(--accent)' }}>
           <h3 style={{ marginBottom: '1rem' }}>Email Template — {tplVariations.length} Variation{tplVariations.length > 1 ? 's' : ''}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
             {varStats.map(v => (
-              <div key={v.vi} style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '1rem', border: '1px solid var(--border)' }}>
+              <div key={v.vi} style={{ background: 'var(--bg-surface)', borderRadius: '8px', padding: '1rem', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                     {v.vi + 1}
@@ -309,11 +309,11 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
                     <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {e.recipient_email}
                       {repliedEmails.has(e.recipient_email?.toLowerCase()) && (
-                        <span style={{ marginLeft: '6px', fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: '#86efac', padding: '1px 5px', borderRadius: '3px' }}>replied</span>
+                        <span style={{ marginLeft: '6px', fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: 'var(--success)', padding: '1px 5px', borderRadius: '3px' }}>replied</span>
                       )}
                     </td>
                     <td>
-                      <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: '4px', padding: '2px 8px', fontSize: '11px' }}>
+                      <span style={{ background: 'rgba(217,119,87,0.12)', color: 'var(--accent)', borderRadius: '4px', padding: '2px 8px', fontSize: '11px' }}>
                         V{(e.variation_index ?? 0) + 1}
                       </span>
                     </td>
@@ -324,16 +324,16 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
                     </td>
                     <td>
                       {e.is_bounced && e.bounce_type === 'hard' && (
-                        <span style={{ fontSize: '11px', background: 'rgba(239,68,68,0.15)', color: '#f87171', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Hard</span>
+                        <span style={{ fontSize: '11px', background: 'rgba(239,68,68,0.15)', color: 'var(--danger)', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Hard</span>
                       )}
                       {e.is_bounced && e.bounce_type === 'soft' && (
-                        <span style={{ fontSize: '11px', background: 'rgba(251,191,36,0.15)', color: '#fbbf24', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Soft</span>
+                        <span style={{ fontSize: '11px', background: 'rgba(251,191,36,0.15)', color: 'var(--warning)', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Soft</span>
                       )}
                       {!e.is_bounced && <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>—</span>}
                     </td>
                     <td>
                       {e.is_opened
-                        ? <span style={{ color: '#86efac', fontWeight: 600 }}>✓ Yes ({e.open_count}×)</span>
+                        ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Yes ({e.open_count}×)</span>
                         : <span style={{ color: 'var(--text-secondary)' }}>No</span>}
                     </td>
                     <td>{e.sent_at ? new Date(e.sent_at).toLocaleString() : '—'}</td>

@@ -48,7 +48,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
         <>
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+              <div className="stat-icon" style={{ background: 'rgba(217,119,87,0.12)', color: 'var(--accent)' }}>
                 <Send size={24} />
               </div>
               <div className="stat-label">Total Campaigns</div>
@@ -57,7 +57,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6' }}>
+              <div className="stat-icon" style={{ background: 'rgba(180,80,60,0.10)', color: '#b4503c' }}>
                 <Mail size={24} />
               </div>
               <div className="stat-label">Emails Sent</div>
@@ -66,7 +66,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>
+              <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}>
                 <Eye size={24} />
               </div>
               <div className="stat-label">Opens</div>
@@ -75,7 +75,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7' }}>
+              <div className="stat-icon" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
                 <MessageSquare size={24} />
               </div>
               <div className="stat-label">Replies</div>
@@ -84,7 +84,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
+              <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--info)' }}>
                 <TrendingUp size={24} />
               </div>
               <div className="stat-label">Daily Limit</div>
@@ -93,7 +93,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe' }}>
+              <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', color: 'var(--accent)' }}>
                 <AlertCircle size={24} />
               </div>
               <div className="stat-label">Weekly Limit</div>
@@ -114,7 +114,7 @@ const Dashboard = ({ onNavigate, inboxes }) => {
                   <YAxis stroke="var(--text-secondary)" />
                   <Tooltip
                     contentStyle={{
-                      background: 'var(--bg-secondary)',
+                      background: 'var(--bg-surface)',
                       border: '1px solid var(--border)',
                       borderRadius: '8px',
                     }}
@@ -162,12 +162,12 @@ const Dashboard = ({ onNavigate, inboxes }) => {
               <h3 className="card-title">Quick Stats</h3>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-              <div style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
+              <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: '1rem' }}>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Last 7 Days</p>
                 <p style={{ fontSize: '1.75rem', fontWeight: 700 }}>{analytics?.last_7_days_sent || 0}</p>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Emails sent</p>
               </div>
-              <div style={{ borderLeft: '3px solid var(--secondary)', paddingLeft: '1rem' }}>
+              <div style={{ borderLeft: '3px solid var(--text-secondary)', paddingLeft: '1rem' }}>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Average Open Rate</p>
                 <p style={{ fontSize: '1.75rem', fontWeight: 700 }}>{(analytics?.open_rate || 0).toFixed(1)}%</p>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Across all campaigns</p>

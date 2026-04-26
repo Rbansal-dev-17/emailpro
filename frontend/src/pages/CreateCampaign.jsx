@@ -73,7 +73,7 @@ const VariationTabs = ({ variations, activeVar, totalLeads, onSelect, onAdd, onR
             style={{
               padding: '5px 14px', borderRadius: '6px', fontSize: '12px',
               fontWeight: activeVar === vi ? 700 : 400,
-              background: activeVar === vi ? 'var(--primary)' : 'var(--bg-tertiary)',
+              background: activeVar === vi ? 'var(--accent)' : 'var(--bg-surface-3)',
               color: activeVar === vi ? '#fff' : 'var(--text-secondary)',
               border: '1px solid ' + (activeVar === vi ? 'var(--primary)' : 'var(--border)'),
               cursor: 'pointer', transition: 'all 0.15s',
@@ -88,7 +88,7 @@ const VariationTabs = ({ variations, activeVar, totalLeads, onSelect, onAdd, onR
           </button>
           {variations.length > 1 && (
             <button onClick={() => onRemove(vi)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: '0 2px', fontSize: '14px', lineHeight: 1 }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '0 2px', fontSize: '14px', lineHeight: 1 }}>
               ×
             </button>
           )}
@@ -132,17 +132,17 @@ const FollowUpCard = ({ fu, fuIdx, originalSubject, totalLeads, onChange, onRemo
     <div>
       <ThreadConnector />
       <div style={{
-        border: '1px solid var(--border)', borderLeft: '3px solid rgba(99,102,241,0.5)',
-        borderRadius: '10px', background: 'var(--bg-secondary)', padding: '1.25rem',
+        border: '1px solid var(--border)', borderLeft: '3px solid rgba(217,119,87,0.40)',
+        borderRadius: '10px', background: 'var(--bg-surface)', padding: '1.25rem',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{
               width: '22px', height: '22px', borderRadius: '50%',
-              background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.5)',
+              background: 'rgba(217,119,87,0.15)', border: '1px solid rgba(217,119,87,0.40)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '11px', fontWeight: 700, color: '#818cf8', flexShrink: 0,
+              fontSize: '11px', fontWeight: 700, color: 'var(--accent)', flexShrink: 0,
             }}>{fuIdx + 1}</div>
             <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Follow-up #{fuIdx + 1}</span>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
@@ -156,7 +156,7 @@ const FollowUpCard = ({ fu, fuIdx, originalSubject, totalLeads, onChange, onRemo
                 type="number" min="1" max="365"
                 value={fu.send_after_days}
                 onChange={e => onChange({ ...fu, send_after_days: Math.max(1, parseInt(e.target.value) || 1) })}
-                style={{ width: '56px', padding: '4px 6px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.85rem', textAlign: 'center' }}
+                style={{ width: '56px', padding: '4px 6px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.85rem', textAlign: 'center' }}
               />
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>days</span>
             </div>
@@ -165,7 +165,7 @@ const FollowUpCard = ({ fu, fuIdx, originalSubject, totalLeads, onChange, onRemo
               {fu.open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             <button onClick={onRemove}
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: '#f87171', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: 'var(--danger)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px' }}>
               <Trash2 size={12} /> Remove
             </button>
           </div>
@@ -174,9 +174,9 @@ const FollowUpCard = ({ fu, fuIdx, originalSubject, totalLeads, onChange, onRemo
         {fu.open && (
           <>
             {/* Locked subject */}
-            <div style={{ background: 'var(--bg-tertiary)', borderRadius: '6px', padding: '8px 12px', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <div style={{ background: 'var(--bg-surface-3)', borderRadius: '6px', padding: '8px 12px', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               <span style={{ fontWeight: 600 }}>Subject (auto):</span> Re: {originalSubject || '(original subject)'}
-              <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '1px 6px', borderRadius: '4px' }}>locked</span>
+              <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(217,119,87,0.12)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '4px' }}>locked</span>
             </div>
 
             <VariationTabs
@@ -370,23 +370,43 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
                   onClick={() => isDone && setStep(s)}
                   style={{
                     width: '36px', height: '36px', borderRadius: '50%',
-                    background: isDone || isActive ? 'var(--primary)' : 'var(--bg-tertiary)',
+                    background: isDone || isActive ? 'var(--accent)' : '#fff',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 700, fontSize: '14px',
                     color: isDone || isActive ? '#fff' : 'var(--text-secondary)',
                     cursor: isDone ? 'pointer' : 'default',
-                    border: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                    border: isActive
+                      ? '2px solid var(--accent)'
+                      : isDone
+                        ? '2px solid var(--accent)'
+                        : '2px solid var(--border-strong)',
                     boxSizing: 'border-box',
+                    boxShadow: isActive ? '0 0 0 3px rgba(217,119,87,0.15)' : 'none',
+                    transition: 'all 0.2s',
                   }}
                 >
                   {isDone ? '✓' : s}
                 </div>
-                <span style={{ fontSize: '11px', color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400, whiteSpace: 'nowrap' }}>
+                <span style={{
+                  fontSize: '11px',
+                  color: isActive ? 'var(--accent)' : isDone ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                  fontWeight: isActive ? 600 : 400,
+                  whiteSpace: 'nowrap'
+                }}>
                   {label}
                 </span>
               </div>
               {i < stepLabels.length - 1 && (
-                <div style={{ width: '60px', height: '2px', background: step > s ? 'var(--primary)' : 'var(--bg-tertiary)', margin: '0 4px', marginBottom: '20px' }} />
+                <div style={{
+                  width: '80px', height: '2px',
+                  background: step > s
+                    ? 'var(--accent)'
+                    : 'var(--border)',
+                  margin: '0 8px',
+                  marginBottom: '22px',
+                  borderRadius: '2px',
+                  transition: 'background 0.3s',
+                }} />
               )}
             </React.Fragment>
           )
@@ -426,13 +446,13 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
         <div className="card">
           <h3 className="card-title" style={{ marginBottom: '0.5rem' }}>Step 2: Map Your Columns</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            Fields marked <span style={{ color: '#f87171' }}>*</span> are required.
+            Fields marked <span style={{ color: 'var(--danger)' }}>*</span> are required.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             {REQUIRED_FIELDS.map(({ key, label, required }) => (
               <div key={key} className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">
-                  {label} {required && <span style={{ color: '#f87171' }}>*</span>}
+                  {label} {required && <span style={{ color: 'var(--danger)' }}>*</span>}
                 </label>
                 <select
                   className="form-select"
@@ -513,7 +533,7 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
 
             {/* Variation distribution summary */}
             {leads.length > 0 && variations.length > 0 && (
-              <div style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.85rem' }}>
+              <div style={{ background: 'var(--bg-surface)', borderRadius: '8px', padding: '0.875rem 1rem', fontSize: '0.85rem' }}>
                 <p style={{ fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
                   {leads.length} leads across {variations.length} variation{variations.length > 1 ? 's' : ''}:
                 </p>
@@ -523,7 +543,7 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
                     const from = vi * perVarCount + Math.min(vi, remainder) + 1
                     const to = from + count - 1
                     return (
-                      <span key={vi} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px 10px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                      <span key={vi} style={{ background: 'var(--bg-surface-3)', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px 10px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                         Variation {vi + 1}: leads {from}–{to} ({count})
                       </span>
                     )
@@ -575,7 +595,7 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
             {/* Add follow-up button */}
             {followups.length < MAX_FOLLOWUPS && (
               <button onClick={addFollowUp}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99,102,241,0.08)', border: '1px dashed rgba(99,102,241,0.4)', borderRadius: '8px', padding: '7px 14px', cursor: 'pointer', color: '#818cf8', fontSize: '13px', fontWeight: 500 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(217,119,87,0.07)', border: '1px dashed rgba(217,119,87,0.35)', borderRadius: '8px', padding: '7px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', fontWeight: 500 }}>
                 <Plus size={14} /> Add Follow-up
               </button>
             )}
@@ -607,7 +627,7 @@ const CreateCampaign = ({ inboxes, onNavigate }) => {
                 className="btn btn-success"
                 onClick={handleSubmit}
                 disabled={loading}
-                style={{ background: 'rgba(16,185,129,0.15)', color: '#86efac', border: '1px solid rgba(16,185,129,0.3)' }}
+                style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.3)' }}
               >
                 {loading ? 'Creating...' : 'Create & Launch Campaign'}
               </button>

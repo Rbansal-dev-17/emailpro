@@ -1,48 +1,38 @@
 import React from 'react'
-import { Mail, Settings, BarChart3, Send } from 'lucide-react'
+import { Mail, BarChart3, Send, Plus, Inbox } from 'lucide-react'
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { id: 'inboxes', label: 'Inboxes', icon: Inbox },
+  { id: 'campaigns', label: 'Campaigns', icon: Send },
+  { id: 'create-campaign', label: 'New Campaign', icon: Plus },
+]
 
 const Navbar = ({ currentPage, onNavigate }) => {
   return (
     <nav className="navbar">
       <div className="navbar-content">
+        {/* Brand */}
         <button
           className="navbar-brand"
           onClick={() => onNavigate('dashboard')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
         >
-          <Mail size={28} />
+          <Mail size={20} />
           <span>EmailPro</span>
         </button>
 
+        {/* Nav links */}
         <div className="navbar-nav">
-          <button
-            className={`nav-link ${currentPage === 'dashboard' ? 'active' : ''}`}
-            onClick={() => onNavigate('dashboard')}
-          >
-            <BarChart3 size={18} style={{ marginRight: '0.5rem' }} />
-            Dashboard
-          </button>
-          <button
-            className={`nav-link ${currentPage === 'inboxes' ? 'active' : ''}`}
-            onClick={() => onNavigate('inboxes')}
-          >
-            <Mail size={18} style={{ marginRight: '0.5rem' }} />
-            Inboxes
-          </button>
-          <button
-            className={`nav-link ${currentPage === 'campaigns' ? 'active' : ''}`}
-            onClick={() => onNavigate('campaigns')}
-          >
-            <Send size={18} style={{ marginRight: '0.5rem' }} />
-            Campaigns
-          </button>
-          <button
-            className={`nav-link ${currentPage === 'create-campaign' ? 'active' : ''}`}
-            onClick={() => onNavigate('create-campaign')}
-          >
-            <Settings size={18} style={{ marginRight: '0.5rem' }} />
-            New Campaign
-          </button>
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              className={`nav-link ${currentPage === id ? 'active' : ''}`}
+              onClick={() => onNavigate(id)}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </nav>
