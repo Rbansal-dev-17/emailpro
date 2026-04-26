@@ -123,6 +123,8 @@ class EmailDetailResponse(BaseModel):
     open_count: int
     template_index: Optional[int]
     variation_index: Optional[int]
+    is_bounced: bool = False
+    bounce_type: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -295,6 +297,7 @@ async def send_campaign_async(campaign_id: int, inbox_id: int,
                 lead.email, rendered_subject, rendered_body, tracking_id
             )
 
+            is_hard_bounce = not success and message_id is None
             email_rec = Email(
                 campaign_id=campaign_id,
                 lead_id=lead.id,
@@ -307,6 +310,9 @@ async def send_campaign_async(campaign_id: int, inbox_id: int,
                 variation_index=v_idx,
                 sent_at=datetime.utcnow() if success else None,
                 status="sent" if success else "failed",
+                is_bounced=is_hard_bounce,
+                bounce_type="hard" if is_hard_bounce else None,
+                bounced_at=datetime.utcnow() if is_hard_bounce else None,
             )
             db.add(email_rec)
             if success:
@@ -357,13 +363,20 @@ async def send_followup_async(followup_id: int, inbox_id: int,
         service = EmailService(email_address, app_password)
         variations = fu.variations   # list of FollowUpVariation ordered by variation_index
 
-        # Leads who replied — skip them
+        # Build exclusion set: replied leads + bounced leads
         replied_emails = {
-            r.from_email
+            r.from_email.lower()
             for r in db.query(Reply).join(Email).filter(
                 Email.campaign_id == fu.campaign_id
             ).all()
         }
+        bounced_emails = {
+            e.recipient_email.lower()
+            for e in db.query(Email).filter(
+                and_(Email.campaign_id == fu.campaign_id, Email.is_bounced == True)
+            ).all()
+        }
+        excluded = replied_emails | bounced_emails
 
         # Get pending follow-up emails for this follow-up
         pending = db.query(FollowUpEmail).filter(
@@ -371,8 +384,8 @@ async def send_followup_async(followup_id: int, inbox_id: int,
                  FollowUpEmail.status == "pending")
         ).all()
 
-        # Filter out replied leads
-        eligible = [p for p in pending if p.recipient_email not in replied_emails]
+        # Filter out replied and bounced leads
+        eligible = [p for p in pending if p.recipient_email.lower() not in excluded]
 
         # Assign follow-up variations positionally across eligible leads
         total_eligible = len(eligible)
@@ -633,16 +646,241 @@ async def get_followup_emails(campaign_id: int, followup_id: int,
              "sent_at": e.sent_at.isoformat() if e.sent_at else None}
             for e in items]
 
+# ============================================================================
+# REPLY + BOUNCE DETECTION (Option B — targeted IMAP search)
+# ============================================================================
+
+def sync_replies_and_bounces(inbox: InboxConfig, campaign_id: int, db: Session) -> dict:
+    """
+    Connects to Gmail via IMAP and:
+    1. Searches for replies FROM known lead emails (subject contains Re:)
+    2. Searches for hard/soft bounce NDRs FROM mailer-daemon or postmaster
+    Records results into Reply and Email tables.
+    Returns summary dict.
+    """
+    stats = {"replies": 0, "hard_bounces": 0, "soft_bounces": 0, "errors": []}
+
+    # Get all sent email addresses for this campaign
+    sent_emails = db.query(Email).filter(
+        and_(Email.campaign_id == campaign_id, Email.status == "sent")
+    ).all()
+
+    if not sent_emails:
+        return stats
+
+    # Map recipient_email -> Email record for fast lookup
+    email_map = {e.recipient_email.lower(): e for e in sent_emails}
+    # Map original subject -> Email record for bounce matching
+    subject_map = {e.subject.lower(): e for e in sent_emails}
+
+    # Already recorded reply addresses to avoid duplicates
+    already_replied = {
+        r.from_email.lower()
+        for r in db.query(Reply).join(Email).filter(
+            Email.campaign_id == campaign_id
+        ).all()
+    }
+    # Already bounced email IDs
+    already_bounced = {
+        e.id for e in sent_emails if e.is_bounced
+    }
+
+    try:
+        with imaplib.IMAP4_SSL("imap.gmail.com") as mail:
+            mail.login(inbox.email_address, inbox.app_password)
+
+            # ── 1. Check INBOX for replies from leads ────────────────────────
+            mail.select("INBOX")
+
+            for lead_email in email_map.keys():
+                if lead_email in already_replied:
+                    continue
+                try:
+                    # Search for emails FROM this specific lead address
+                    _, data = mail.search(None, f'FROM "{lead_email}"')
+                    msg_ids = data[0].split()
+                    if not msg_ids:
+                        continue
+
+                    for msg_id in msg_ids[-5:]:   # check last 5 from this sender
+                        try:
+                            _, msg_data = mail.fetch(msg_id, "(RFC822)")
+                            msg = email_lib.message_from_bytes(msg_data[0][1])
+                            subject = msg.get("Subject", "")
+                            from_addr = email_lib.utils.parseaddr(msg.get("From", ""))[1].lower()
+
+                            # Must be a Re: reply and from a known lead
+                            if not subject.lower().startswith("re:"):
+                                continue
+                            if from_addr not in email_map:
+                                continue
+
+                            orig_email = email_map[from_addr]
+                            if orig_email.id in already_bounced:
+                                continue
+
+                            # Get body
+                            body = ""
+                            if msg.is_multipart():
+                                for part in msg.walk():
+                                    if part.get_content_type() == "text/plain":
+                                        try:
+                                            body = part.get_payload(decode=True).decode("utf-8", errors="replace")
+                                        except Exception:
+                                            body = ""
+                                        break
+                            else:
+                                try:
+                                    body = msg.get_payload(decode=True).decode("utf-8", errors="replace") if msg.get_payload(decode=True) else ""
+                                except Exception:
+                                    body = ""
+
+                            db.add(Reply(
+                                email_id=orig_email.id,
+                                from_email=from_addr,
+                                reply_subject=subject,
+                                reply_body=body[:1000],
+                                reply_timestamp=datetime.utcnow(),
+                                is_from_recipient=True,
+                            ))
+                            already_replied.add(from_addr)
+                            stats["replies"] += 1
+
+                        except Exception as e:
+                            stats["errors"].append(f"reply parse error: {str(e)[:80]}")
+                            continue
+
+                except Exception as e:
+                    stats["errors"].append(f"reply search error for {lead_email}: {str(e)[:80]}")
+                    continue
+
+            # ── 2. Check for bounce NDRs (mailer-daemon / postmaster) ────────
+            # Search FROM mailer-daemon
+            for bounce_sender in ['"mailer-daemon"', '"postmaster"']:
+                try:
+                    _, data = mail.search(None, f"FROM {bounce_sender}")
+                    msg_ids = data[0].split()
+                    if not msg_ids:
+                        continue
+
+                    for msg_id in msg_ids[-20:]:   # last 20 NDR emails
+                        try:
+                            _, msg_data = mail.fetch(msg_id, "(RFC822)")
+                            msg = email_lib.message_from_bytes(msg_data[0][1])
+                            subject = msg.get("Subject", "").lower()
+
+                            # Get full body to find the bounced address
+                            full_text = ""
+                            if msg.is_multipart():
+                                for part in msg.walk():
+                                    ct = part.get_content_type()
+                                    if ct in ("text/plain", "message/delivery-status"):
+                                        try:
+                                            chunk = part.get_payload(decode=True)
+                                            if chunk:
+                                                full_text += chunk.decode("utf-8", errors="replace")
+                                        except Exception:
+                                            pass
+                            else:
+                                try:
+                                    chunk = msg.get_payload(decode=True)
+                                    full_text = chunk.decode("utf-8", errors="replace") if chunk else ""
+                                except Exception:
+                                    pass
+
+                            # Determine bounce type from subject / status codes
+                            # Hard bounce: 5xx codes, "does not exist", "invalid", "no such user"
+                            # Soft bounce: 4xx codes, "mailbox full", "temporarily"
+                            hard_keywords = [
+                                "550", "551", "552", "553", "554",
+                                "does not exist", "no such user", "invalid address",
+                                "user unknown", "address rejected", "mailbox not found",
+                                "delivery failed", "undeliverable"
+                            ]
+                            soft_keywords = [
+                                "421", "450", "451", "452",
+                                "mailbox full", "over quota", "temporarily",
+                                "try again later", "service unavailable"
+                            ]
+
+                            combined = (subject + " " + full_text).lower()
+                            is_hard = any(kw in combined for kw in hard_keywords)
+                            is_soft = any(kw in combined for kw in soft_keywords)
+
+                            if not is_hard and not is_soft:
+                                continue
+
+                            bounce_type_str = "hard" if is_hard else "soft"
+
+                            # Try to find which lead email bounced
+                            # Look for any of our lead emails mentioned in the NDR body
+                            matched_email = None
+                            for lead_addr in email_map.keys():
+                                if lead_addr in full_text.lower() or lead_addr in subject:
+                                    matched_email = email_map[lead_addr]
+                                    break
+
+                            if not matched_email:
+                                continue
+                            if matched_email.id in already_bounced:
+                                continue
+
+                            matched_email.is_bounced = True
+                            matched_email.bounce_type = bounce_type_str
+                            matched_email.bounced_at = datetime.utcnow()
+                            already_bounced.add(matched_email.id)
+
+                            if is_hard:
+                                stats["hard_bounces"] += 1
+                            else:
+                                stats["soft_bounces"] += 1
+
+                        except Exception as e:
+                            stats["errors"].append(f"bounce parse error: {str(e)[:80]}")
+                            continue
+
+                except Exception as e:
+                    stats["errors"].append(f"bounce search error: {str(e)[:80]}")
+                    continue
+
+            db.commit()
+
+    except Exception as e:
+        stats["errors"].append(f"IMAP connection error: {str(e)[:120]}")
+
+    return stats
+
+
+# ── Manual trigger endpoint ───────────────────────────────────────────────────
+
+@app.post("/api/campaigns/{campaign_id}/check-replies")
+async def check_replies_endpoint(campaign_id: int, db: Session = Depends(get_db)):
+    """Manually trigger reply + bounce sync for a campaign."""
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+    inbox = db.query(InboxConfig).filter(InboxConfig.id == campaign.inbox_id).first()
+    if not inbox:
+        raise HTTPException(404, "Inbox not found")
+
+    stats = sync_replies_and_bounces(inbox, campaign_id, db)
+    return {"status": "ok", **stats}
+
+
+# ── Auto-check on follow-up due ───────────────────────────────────────────────
+
 @app.post("/api/followups/check-due")
 async def check_due_followups(background_tasks: BackgroundTasks,
                                db: Session = Depends(get_db)):
     """
-    Called on app load. Finds all due follow-ups and fires them within daily budget.
-    Priority: original campaign pending emails first, then follow-ups split equally.
+    Called on every app page load.
+    1. For each campaign that has scheduled follow-ups: sync replies + bounces first.
+    2. Find all due follow-ups and fire them within daily budget.
+       Priority: original pending emails first, then follow-ups split equally.
     """
     now = datetime.utcnow()
 
-    # Find all scheduled follow-ups that are due
+    # Find all due scheduled follow-ups
     due = db.query(FollowUp).filter(
         and_(
             FollowUp.status == "scheduled",
@@ -650,11 +888,53 @@ async def check_due_followups(background_tasks: BackgroundTasks,
         )
     ).all()
 
-    if not due:
+    # Also include follow-ups still in "scheduled" state with pending emails
+    # (partially sent from a previous run due to daily limit)
+    partial = db.query(FollowUp).filter(
+        FollowUp.status == "scheduled"
+    ).join(FollowUpEmail).filter(
+        FollowUpEmail.status == "pending"
+    ).all()
+
+    all_due = {fu.id: fu for fu in due + partial}
+
+    if not all_due:
         return {"checked": True, "due_count": 0, "message": "No follow-ups due"}
 
+    # ── Step 1: sync replies + bounces for all affected campaigns ─────────────
+    affected_campaign_ids = {fu.campaign_id for fu in all_due.values()}
+    sync_summary = {}
+    for cid in affected_campaign_ids:
+        campaign = db.query(Campaign).filter(Campaign.id == cid).first()
+        if not campaign:
+            continue
+        inbox = db.query(InboxConfig).filter(InboxConfig.id == campaign.inbox_id).first()
+        if not inbox:
+            continue
+        stats = sync_replies_and_bounces(inbox, cid, db)
+        sync_summary[cid] = stats
+
+    # ── Step 2: build exclusion sets (replied + bounced) per campaign ─────────
+    def get_excluded(campaign_id: int) -> set:
+        replied = {
+            r.from_email.lower()
+            for r in db.query(Reply).join(Email).filter(
+                Email.campaign_id == campaign_id
+            ).all()
+        }
+        bounced = {
+            e.recipient_email.lower()
+            for e in db.query(Email).filter(
+                and_(Email.campaign_id == campaign_id, Email.is_bounced == True)
+            ).all()
+        }
+        return replied | bounced
+
+    # ── Step 3: fire follow-ups within budget ─────────────────────────────────
     results = []
-    for fu in due:
+    processed_inboxes = set()   # track budget per inbox across multiple follow-ups
+
+    for fu in all_due.values():
         campaign = db.query(Campaign).filter(Campaign.id == fu.campaign_id).first()
         if not campaign:
             continue
@@ -662,43 +942,43 @@ async def check_due_followups(background_tasks: BackgroundTasks,
         if not inbox:
             continue
 
-        # Count today's remaining budget for this inbox
         rem = daily_remaining(db, inbox.id)
         if rem == 0:
-            results.append({"followup_id": fu.id, "status": "skipped", "reason": "daily limit reached"})
+            results.append({"followup_id": fu.id, "status": "skipped",
+                            "reason": "daily limit reached"})
             continue
 
-        # Count pending original campaign emails for this inbox (priority)
+        # Priority: pending original emails consume budget first
         pending_originals = db.query(func.count(Email.id)).join(Campaign).filter(
-            and_(
-                Campaign.inbox_id == inbox.id,
-                Email.status == "pending",
-            )
+            and_(Campaign.inbox_id == inbox.id, Email.status == "pending")
         ).scalar() or 0
-
-        # Budget after originals
-        originals_to_send = min(pending_originals, rem)
-        followup_budget = rem - originals_to_send
+        followup_budget = max(0, rem - min(pending_originals, rem))
 
         if followup_budget == 0:
             results.append({"followup_id": fu.id, "status": "skipped",
-                            "reason": "budget consumed by pending original emails"})
+                            "reason": "budget consumed by pending originals"})
             continue
 
-        # Count due follow-ups for this inbox to split budget equally
-        due_for_inbox = [f for f in due
-                         if db.query(Campaign).filter(Campaign.id == f.campaign_id).first()
-                         and db.query(Campaign).filter(Campaign.id == f.campaign_id).first().inbox_id == inbox.id
-                         and f.status == "scheduled"]
-        per_fu_budget = max(1, followup_budget // len(due_for_inbox)) if due_for_inbox else followup_budget
+        # Split budget equally among all due follow-ups for this inbox
+        due_for_inbox = [
+            f for f in all_due.values()
+            if db.query(Campaign).filter(Campaign.id == f.campaign_id).first() and
+               db.query(Campaign).filter(Campaign.id == f.campaign_id).first().inbox_id == inbox.id
+        ]
+        per_fu_budget = max(1, followup_budget // len(due_for_inbox))
 
-        # Create FollowUpEmail pending records if not yet created
-        existing = db.query(func.count(FollowUpEmail.id)).filter(
-            FollowUpEmail.followup_id == fu.id
-        ).scalar() or 0
+        # Build / update FollowUpEmail pending records excluding replied+bounced
+        excluded = get_excluded(fu.campaign_id)
 
-        if existing == 0:
-            # Build target email list
+        existing_ids = {
+            fe.original_email_id
+            for fe in db.query(FollowUpEmail).filter(
+                FollowUpEmail.followup_id == fu.id
+            ).all()
+        }
+
+        if not existing_ids:
+            # First time — create pending records
             q = db.query(Email).filter(
                 and_(Email.campaign_id == fu.campaign_id, Email.status == "sent")
             )
@@ -706,24 +986,39 @@ async def check_due_followups(background_tasks: BackgroundTasks,
                 q = q.filter(Email.template_index == fu.target_template_index)
             target_emails = q.all()
 
-            replied_addrs = {
-                r.from_email
-                for r in db.query(Reply).join(Email).filter(
-                    Email.campaign_id == fu.campaign_id
-                ).all()
-            }
-
+            created = 0
             for orig in target_emails:
-                if orig.recipient_email in replied_addrs:
+                if orig.recipient_email.lower() in excluded:
                     continue
                 db.add(FollowUpEmail(
                     followup_id=fu.id,
                     original_email_id=orig.id,
                     recipient_email=orig.recipient_email,
                     subject=f"Re: {orig.subject}",
-                    body="",   # filled during send
+                    body="",
                     status="pending",
                 ))
+                created += 1
+            db.commit()
+
+            if created == 0:
+                fu.status = "completed"
+                fu.completed_at = datetime.utcnow()
+                db.commit()
+                results.append({"followup_id": fu.id, "status": "skipped",
+                                "reason": "all leads replied or bounced"})
+                continue
+        else:
+            # Already created — mark replied/bounced ones as skipped
+            pending_fes = db.query(FollowUpEmail).filter(
+                and_(
+                    FollowUpEmail.followup_id == fu.id,
+                    FollowUpEmail.status == "pending"
+                )
+            ).all()
+            for fe in pending_fes:
+                if fe.recipient_email.lower() in excluded:
+                    fe.status = "skipped"
             db.commit()
 
         fu.status = "sending"
@@ -738,9 +1033,14 @@ async def check_due_followups(background_tasks: BackgroundTasks,
             budget=per_fu_budget,
         )
 
-        results.append({"followup_id": fu.id, "budget": per_fu_budget, "status": "queued"})
+        results.append({
+            "followup_id": fu.id,
+            "budget": per_fu_budget,
+            "status": "queued",
+            "sync": sync_summary.get(fu.campaign_id, {}),
+        })
 
-    return {"checked": True, "due_count": len(due), "results": results}
+    return {"checked": True, "due_count": len(all_due), "results": results}
 
 # ── Tracking ──────────────────────────────────────────────────────────────────
 

@@ -105,6 +105,10 @@ class Email(Base):
     is_opened = Column(Boolean, default=False)
     open_count = Column(Integer, default=0)
     status = Column(String(50), default="pending")
+    # Bounce tracking
+    is_bounced = Column(Boolean, default=False)
+    bounce_type = Column(String(20), nullable=True)   # 'hard' | 'soft' | None
+    bounced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     campaign = relationship("Campaign", back_populates="emails")

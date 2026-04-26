@@ -121,9 +121,26 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
 
   useEffect(() => {
     fetchCampaign()
+    checkRepliesAndBounces()
     const iv = setInterval(fetchCampaign, 4000)
     return () => clearInterval(iv)
   }, [campaignId])
+
+  const checkRepliesAndBounces = async () => {
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/check-replies`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        const total = (data.replies || 0) + (data.hard_bounces || 0) + (data.soft_bounces || 0)
+        if (total > 0) {
+          toast.info(`Synced: ${data.replies} replies, ${data.hard_bounces} hard bounces, ${data.soft_bounces} soft bounces detected`)
+          fetchCampaign()
+        }
+      }
+    } catch (e) {
+      console.log('Reply/bounce check skipped:', e.message)
+    }
+  }
 
   const fetchCampaign = async () => {
     try {
@@ -154,6 +171,15 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
 
   const openRate = campaign.sent_count > 0
     ? ((campaign.opened_count / campaign.sent_count) * 100).toFixed(1) : 0
+
+  // Build set of replied email addresses for badge display
+  const repliedEmails = new Set(
+    emails
+      .filter(e => e.has_reply)
+      .map(e => e.recipient_email?.toLowerCase())
+  )
+  const hardBounces = emails.filter(e => e.is_bounced && e.bounce_type === 'hard').length
+  const softBounces = emails.filter(e => e.is_bounced && e.bounce_type === 'soft').length
 
   // Per-variation stats from sent emails
   const varStats = tplVariations.map((v, vi) => {
@@ -188,6 +214,8 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
           { label: 'Emails Sent', value: campaign.sent_count },
           { label: 'Opens', value: `${campaign.opened_count} (${openRate}%)` },
           { label: 'Replies', value: campaign.replied_count },
+          { label: 'Hard Bounces', value: hardBounces, color: hardBounces > 0 ? '#f87171' : undefined },
+          { label: 'Soft Bounces', value: softBounces, color: softBounces > 0 ? '#fbbf24' : undefined },
           { label: 'Follow-ups', value: followups.length },
         ].map(s => (
           <div key={s.label} className="stat-card">
@@ -251,9 +279,15 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">All Sent Emails</h3>
-          <button className="btn btn-secondary" onClick={fetchCampaign} style={{ padding: '0.5rem 1rem' }}>
-            <RefreshCw size={16} /> Refresh
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn btn-secondary" onClick={checkRepliesAndBounces}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <MessageSquare size={14} /> Sync Replies & Bounces
+            </button>
+            <button className="btn btn-secondary" onClick={fetchCampaign} style={{ padding: '0.5rem 1rem' }}>
+              <RefreshCw size={16} /> Refresh
+            </button>
+          </div>
         </div>
 
         {emails.length > 0 ? (
@@ -264,14 +298,20 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
                   <th>Email</th>
                   <th>Variation</th>
                   <th>Status</th>
+                  <th>Bounce</th>
                   <th><Eye size={13} style={{ display: 'inline', marginRight: 4 }} />Opened</th>
                   <th>Sent At</th>
                 </tr>
               </thead>
               <tbody>
                 {emails.map(e => (
-                  <tr key={e.id}>
-                    <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.recipient_email}</td>
+                  <tr key={e.id} style={{ opacity: e.is_bounced ? 0.6 : 1 }}>
+                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {e.recipient_email}
+                      {repliedEmails.has(e.recipient_email?.toLowerCase()) && (
+                        <span style={{ marginLeft: '6px', fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: '#86efac', padding: '1px 5px', borderRadius: '3px' }}>replied</span>
+                      )}
+                    </td>
                     <td>
                       <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: '4px', padding: '2px 8px', fontSize: '11px' }}>
                         V{(e.variation_index ?? 0) + 1}
@@ -281,6 +321,15 @@ const CampaignDetail = ({ campaignId, onNavigate }) => {
                       {e.status === 'sent' && <span className="badge badge-success">Sent</span>}
                       {e.status === 'pending' && <span className="badge badge-warning">Pending</span>}
                       {e.status === 'failed' && <span className="badge badge-danger">Failed</span>}
+                    </td>
+                    <td>
+                      {e.is_bounced && e.bounce_type === 'hard' && (
+                        <span style={{ fontSize: '11px', background: 'rgba(239,68,68,0.15)', color: '#f87171', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Hard</span>
+                      )}
+                      {e.is_bounced && e.bounce_type === 'soft' && (
+                        <span style={{ fontSize: '11px', background: 'rgba(251,191,36,0.15)', color: '#fbbf24', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>Soft</span>
+                      )}
+                      {!e.is_bounced && <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>—</span>}
                     </td>
                     <td>
                       {e.is_opened
